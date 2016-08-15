@@ -11,35 +11,64 @@ namespace AdminBundle\Controller;
 use CoreBundle\Model\EmpProfilePeer;
 use CoreBundle\Model\EmpTimePeer;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+//use Symfony\Component\BrowserKit\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Request;
 
 class EmployeeReportController extends Controller {
 
     public function getRecord()
     {
+        $c = new \Criteria();
+        $deptid = $_REQUEST['deptid'];
 
+        $startdateinput = $_REQUEST['start'];
+        $enddateinput = $_REQUEST['end'];
+
+        $startdate = date('Y-m-d', strtotime($startdateinput));
+        $enddate = date('Y-m-d', strtotime($enddateinput));
+
+        if($startdateinput == 'Invalid Date' || $enddateinput == 'Invalid Date'){
+            $c->addDescendingOrderByColumn(EmpTimePeer::DATE);
+            $results = EmpTimePeer::getEmployeeTimes($c);
+            return $results;
+        }
+//        $c->addAscendingOrderByColumn($startdate, $enddate, \Criteria::GREATER_THAN);
+        if($deptid == 'null'){
+//          $results = EmpTimePeer::getEmployeeTimes();
+            $c->add(EmpTimePeer::DATE, $startdate, \Criteria::GREATER_EQUAL);
+            $c->addAnd(EmpTimePeer::DATE, $enddate, \Criteria::LESS_EQUAL);
+            $c->addAscendingOrderByColumn(EmpTimePeer::DATE);
+            $results = EmpTimePeer::getEmployeeTimes($c);
+        }else{
+            $c->add(EmpProfilePeer::LIST_DEPT_ID, $deptid, \Criteria::EQUAL);
+            $c->add(EmpTimePeer::DATE, $startdate, \Criteria::GREATER_EQUAL);
+            $c->addAnd(EmpTimePeer::DATE, $enddate, \Criteria::LESS_EQUAL);
+            $c->addAscendingOrderByColumn(EmpTimePeer::DATE);
+            $results = EmpTimePeer::getEmployeeTimes($c);
+        }
+        return $results;
     }
 
     /**
      * Generate employee time report
      * @return StreamedResponse
      */
-    public function generateReportAction()
+    public function generateReportAction(Request $req)
     {
         $response = new StreamedResponse();
         $response->setCallback(function() {
             $handle = fopen('php://output', 'w+');
-
             // Add the header of the CSV file
-            fputcsv($handle, array('Employee ID', 'Name', 'Time in', 'Time out', 'Date', 'Work in Office', 'Total hours (time)', 'Total hours (decimal)', 'Overtime'));
-            $results = EmpTimePeer::getEmployeeTimes();
-
-            foreach($results as $emp) {
+            fputcsv($handle, array('Employee ID', 'Name', 'Time in', 'Time out', 'Date', 'Work in Office', 'Total hours (decimal)', 'Overtime'));
+            $records = $this->getRecord();
+            foreach($records as $emp) {
                 $empid          = $emp->getEmpAccAccId();
                 $timeindata     = $emp->getTimeIn()->format('h:i A');
                 $timeoutdata    = is_null($emp->getTimeOut()) ? "" : $emp->getTimeOut()->format('h:i A');
-                $date           = $emp->getDate()->format('d/m/Y');
-                $isOffice       = $emp->getCheckIp() ? 'No':'Yes';
+                $date           = $emp->getDate()->format('m/d/Y');
+                $dateday        = $emp->getDate()->format('D');
+                $isOffice       = $emp->getCheckIp() ? 'Yes':'No';
 
                 //record
                 $profile = EmpProfilePeer::getInformation($empid);
@@ -55,6 +84,7 @@ class EmployeeReportController extends Controller {
                     $in = new \DateTime($emp->getTimeIn()->format('Y-m-d H:i:s'));
                     $out = new \DateTime($emp->getTimeOut()->format('Y-m-d H:i:s'));
                     $manhours = date_diff($out, $in);
+
                     $totalHours = $manhours->format('%h') . ':' . $manhours->format('%i');
 
                     $h = $manhours->format('%h');
@@ -65,20 +95,28 @@ class EmployeeReportController extends Controller {
                     if($totalHoursDec > 9) {
                         $overtime = $totalHoursDec - 9;
                     }
+                    if($dateday == 'Sat' || $dateday == 'Sun'){
+                        $overtime = $totalHoursDec;
+                    }
+                    if($overtime < 1){
+                        $overtime = 0;
+                    }
+//                    $totalHoursDec = $emp->getManhours();
+//                    $overtime = $emp->getOvertime();
                 }
 
                 fputcsv($handle, // The file pointer
-                    array("EMP-" . $empnum,  $lname . ", " . $fname, $timeindata, $timeoutdata, $date, $isOffice, $totalHours, $totalHoursDec, $overtime)
+                    array("EMP-" . $empnum,  $lname . ", " . $fname, $timeindata, $timeoutdata, $date, $isOffice, $totalHoursDec, $overtime)
                 );
             }
             exit;
 
             fclose($handle);
         });
-
+        $filedate           = date('m/d/Y');
         $response->setStatusCode(200);
         $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-        $response->headers->set('Content-Disposition', 'attachment; filename="employee_export.csv"');
+        $response->headers->set('Content-Disposition', 'attachment; filename="employee_export"'.$filedate.'".csv"');
         return $response;
     }
 
