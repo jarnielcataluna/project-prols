@@ -99,7 +99,15 @@ class NativeSessionStorage implements SessionStorageInterface
     public function __construct(array $options = array(), $handler = null, MetadataBag $metaBag = null)
     {
         //session_cache_limiter(''); // disable by default because it's managed by HeaderBag (if used)
-        ini_set('session.use_cookies', 1);
+        //ini_set('session.use_cookies', 1);
+        
+        $options += [
+            'cache_limiter' => '',
+            'cache_expire' => 0,
+            'use_cookies' => 1,
+            'lazy_write' => 1,
+            'use_strict_mode' => 1,
+        ];
 
         if (PHP_VERSION_ID >= 50400) {
             session_register_shutdown();
