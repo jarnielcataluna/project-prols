@@ -70,12 +70,12 @@ security:
             anonymous: ~
 
     access_control:
-        - { path: ^/login, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/login, roles: IS_AUTHENTICATED_ANONYMOUSLY, requires_channel: https  }
         - { path: ^/listener/*, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         - { path: ^/error404, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         - { path: ^/error403, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         - { path: ^/sendemail, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         - { path: ^/export, roles: IS_AUTHENTICATED_ANONYMOUSLY }
 #        - { path: ^/requestaccess, roles: IS_AUTHENTICATED_ANONYMOUSLY }
-        - { path: ^/, roles: ROLE_ANALYST }
+        - { path: ^/, roles: ROLE_ANALYST, requires_channel: https }
 
